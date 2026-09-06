@@ -456,6 +456,29 @@ app.get("/api/alerts", async (req, res) => {
 });
 
 
+app.get("/api/alerts/today", async (req, res) => {
+    const today = new Date().toISOString().split("T")[0];
+
+    const { data, error } = await supabase
+        .from("alerts")
+        .select(`
+            *,
+            departments (
+                code,
+                name
+            )
+        `)
+        .eq("alert_date", today)
+        .order("risk_percentage", { ascending: false });
+
+    if (error) {
+        return res.status(500).json({ error: error.message });
+    }
+
+    res.json(data);
+});
+
+
 app.patch("/api/alerts/:id/resolve", async (req, res) => {
     const { id } = req.params;
 
@@ -468,6 +491,24 @@ app.patch("/api/alerts/:id/resolve", async (req, res) => {
 
     if (error) {
         return res.status(400).json({ error: error.message });
+    }
+
+    res.json(data);
+});
+
+
+// =====================================================
+// MICROBE REFERENCE
+// =====================================================
+
+app.get("/api/microbe-reference", async (req, res) => {
+    const { data, error } = await supabase
+        .from("microbe_reference")
+        .select("*")
+        .order("microbe");
+
+    if (error) {
+        return res.status(500).json({ error: error.message });
     }
 
     res.json(data);

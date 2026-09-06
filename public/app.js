@@ -6,6 +6,9 @@ let patients = [];
 let surfaces = [];
 
 
+// =====================================================
+// API
+// =====================================================
 
 async function api(url, options = {}) {
 
@@ -21,6 +24,10 @@ async function api(url, options = {}) {
 }
 
 
+// =====================================================
+// LOAD BASIC DATA
+// =====================================================
+
 async function loadDepartments() {
     departments = await api("/api/departments");
 }
@@ -33,6 +40,10 @@ async function loadSurfaces() {
     surfaces = await api("/api/surfaces");
 }
 
+
+// =====================================================
+// PATIENTS
+// =====================================================
 
 async function showPatients() {
 
@@ -113,6 +124,10 @@ async function showPatients() {
     `;
 }
 
+
+// =====================================================
+// PATIENT FORM
+// =====================================================
 
 async function showPatientForm() {
 
@@ -341,6 +356,10 @@ async function savePatient(event) {
 }
 
 
+// =====================================================
+// APPOINTMENTS (logging form only, no table)
+// =====================================================
+
 async function showAppointments() {
 
     await loadPatients();
@@ -451,6 +470,10 @@ async function saveAppointment(event) {
     }
 }
 
+
+// =====================================================
+// LABORATORY (logging form only, no table)
+// =====================================================
 
 async function showLaboratory() {
 
@@ -566,6 +589,10 @@ async function saveLabResult(event) {
     }
 }
 
+
+// =====================================================
+// SURFACE SAMPLES (logging form only, no table)
+// =====================================================
 
 async function showSamples() {
 
@@ -686,6 +713,10 @@ async function saveSample(event) {
 }
 
 
+// =====================================================
+// CLEANING (logging form only, no table)
+// =====================================================
+
 async function showCleaning() {
 
     await loadSurfaces();
@@ -792,6 +823,62 @@ async function saveCleaning(event) {
 }
 
 
+// =====================================================
+// MICROBE GUIDE (read-only reference)
+// =====================================================
+
+async function showMicrobeGuide() {
+
+    pageTitle.textContent = "Microbe Guide";
+
+    const reference = await api("/api/microbe-reference");
+
+    content.innerHTML = `
+
+        <div class="page-header">
+            <div>
+                <h2>Microbe Reference</h2>
+                <p>Logic used to link department conditions to each predicted microbe.</p>
+            </div>
+        </div>
+
+        <div class="card">
+
+            <table>
+
+                <thead>
+                    <tr>
+                        <th>Microbe</th>
+                        <th>Condition</th>
+                        <th>Rationale</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    ${reference.map(r => `
+
+                        <tr>
+                            <td><strong>${r.microbe}</strong></td>
+                            <td>${r.condition_description}</td>
+                            <td>${r.rationale}</td>
+                        </tr>
+
+                    `).join("")}
+
+                </tbody>
+
+            </table>
+
+        </div>
+    `;
+}
+
+
+// =====================================================
+// PREDICTIONS
+// =====================================================
+
 function riskClass(risk) {
     if (risk >= 70) return "critical";
     if (risk >= 50) return "high";
@@ -857,6 +944,10 @@ async function showPredictions() {
 }
 
 
+// =====================================================
+// ALERTS
+// =====================================================
+
 async function resolveAlert(alertId) {
 
     try {
@@ -878,7 +969,7 @@ async function showAlerts() {
 
     pageTitle.textContent = "Alerts";
 
-    const alerts = await api("/api/alerts");
+    const alerts = await api("/api/alerts/today");
 
     content.innerHTML = `
 
@@ -940,6 +1031,10 @@ async function showAlerts() {
 }
 
 
+// =====================================================
+// NAVIGATION
+// =====================================================
+
 document.querySelectorAll(".nav-btn").forEach(button => {
 
     button.addEventListener("click", () => {
@@ -972,6 +1067,9 @@ document.querySelectorAll(".nav-btn").forEach(button => {
         if (page === "predictions")
             showPredictions();
 
+        if (page === "microbe-guide")
+            showMicrobeGuide();
+
         if (page === "alerts")
             showAlerts();
 
@@ -979,5 +1077,9 @@ document.querySelectorAll(".nav-btn").forEach(button => {
 
 });
 
+
+// =====================================================
+// START
+// =====================================================
 
 showPatients();

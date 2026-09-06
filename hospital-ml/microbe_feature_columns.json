@@ -1,0 +1,18 @@
+[
+  "department_id",
+  "patient_count",
+  "positive_patient_cases",
+  "appointment_count",
+  "expected_visitors",
+  "positive_lab_cases",
+  "positive_surface_samples",
+  "avg_people_count",
+  "avg_crowd_density",
+  "avg_dwell_time",
+  "surface_contact_count",
+  "temperature",
+  "humidity",
+  "avg_hours_since_cleaning",
+  "day_of_week",
+  "is_weekend"
+]

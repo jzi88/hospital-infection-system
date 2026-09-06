@@ -1,21 +1,30 @@
 """
 predict_and_alert.py
 
-Loads the trained model, pulls today's feature row for every department
-from the `ml_department_daily_features` view, predicts an infection risk
-percentage for each department, writes the result into the `predictions`
-table, and creates a row in `alerts` for any department whose risk is
-above a threshold.
+Loads the trained models and, for EACH of the upcoming days (today
+through FORECAST_DAYS_AHEAD days from now), pulls that day's feature
+row for every department from `ml_department_daily_features`,
+predicts an infection risk percentage, writes it into the
+`predictions` table, and creates a row in `alerts` for any
+department/day whose risk crosses a threshold.
 
-Run this daily (manually at first, later via a scheduled task / cron job)
-to keep predictions up to date.
+Run this daily (manually at first, later via a scheduled task / cron
+job) to keep the forecast rolling forward.
+
+NOTE: sensor-based features (crowd density, temperature, humidity,
+hours since cleaning) only exist for PAST days in this project, so
+for future days those fall back to fixed defaults. What actually
+varies day-to-day for the future is patient/appointment/visitor
+volume already scheduled in the data. This is a reasonable
+simplification for a demo system — a production system would need
+real forecasted sensor data to do better.
 """
 
 import os
 import json
 import joblib
 import pandas as pd
-from datetime import date
+from datetime import date, timedelta
 from dotenv import load_dotenv
 from supabase import create_client
 
@@ -26,6 +35,18 @@ SUPABASE_KEY = os.environ["SUPABASE_ANON_KEY"]
 
 MODEL_PATH = "model.pkl"
 FEATURES_PATH = "feature_columns.json"
+
+MICROBE_MODEL_PATH = "microbe_model.pkl"
+MICROBE_FEATURES_PATH = "microbe_feature_columns.json"
+MICROBE_LABEL_ENCODER_PATH = "microbe_label_encoder.pkl"
+
+# How many days ahead to forecast (today + this many extra days).
+# The ml_department_daily_features view covers up to 7 days ahead.
+FORECAST_DAYS_AHEAD = 6
+
+# Only bother predicting a specific microbe when risk is at least this high —
+# below that, "which microbe" isn't a meaningful question yet
+MICROBE_PREDICTION_THRESHOLD = 30
 
 # Risk thresholds -> severity label (checked from highest to lowest)
 SEVERITY_THRESHOLDS = [
@@ -42,93 +63,142 @@ def severity_for_risk(risk_percentage: float):
     return None  # below all thresholds -> no alert needed
 
 
-def main():
-    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-    print("Loading trained model...")
+def load_models():
     model = joblib.load(MODEL_PATH)
     with open(FEATURES_PATH) as f:
         feature_columns = json.load(f)
 
-    today = date.today().isoformat()
+    microbe_model = None
+    microbe_feature_columns = None
+    microbe_label_encoder = None
 
-    print(f"Fetching today's ({today}) feature row for every department...")
+    if os.path.exists(MICROBE_MODEL_PATH):
+        microbe_model = joblib.load(MICROBE_MODEL_PATH)
+        microbe_label_encoder = joblib.load(MICROBE_LABEL_ENCODER_PATH)
+        with open(MICROBE_FEATURES_PATH) as f:
+            microbe_feature_columns = json.load(f)
+    else:
+        print(
+            "No microbe_model.pkl found — predicted_microbe will stay empty "
+            "for all days. Run train_microbe_model.py if you want that."
+        )
+
+    return model, feature_columns, microbe_model, microbe_feature_columns, microbe_label_encoder
+
+
+def predict_for_day(
+    supabase,
+    target_date: str,
+    model,
+    feature_columns,
+    microbe_model,
+    microbe_feature_columns,
+    microbe_label_encoder,
+):
     response = (
         supabase
         .from_("ml_department_daily_features")
         .select("*")
-        .eq("day", today)
+        .eq("day", target_date)
         .execute()
     )
     rows = response.data
 
     if not rows:
-        print(
-            f"No feature rows found for {today} in ml_department_daily_features. "
-            "Nothing to predict."
-        )
+        print(f"  No feature rows for {target_date}, skipping.")
         return
 
     df = pd.DataFrame(rows)
-
-    # Keep department metadata for reporting, and align features to the
-    # exact column order the model was trained on
     departments_info = df[["department_id", "code", "name"]]
 
     missing = [c for c in feature_columns if c not in df.columns]
     if missing:
         raise RuntimeError(
-            f"The following columns the model expects are missing from "
-            f"ml_department_daily_features: {missing}"
+            f"Missing expected columns in ml_department_daily_features: {missing}"
         )
 
     X = df[feature_columns]
-
-    print("Predicting risk for each department...")
-    probabilities = model.predict_proba(X)[:, 1]  # probability of class "1" (infection event)
+    probabilities = model.predict_proba(X)[:, 1]
 
     for i, row in departments_info.iterrows():
         department_id = int(row["department_id"])
         code = row["code"]
         risk_percentage = round(float(probabilities[i]) * 100, 2)
 
-        print(f"  {code}: {risk_percentage}% risk")
+        predicted_microbe = None
+        if microbe_model is not None and risk_percentage >= MICROBE_PREDICTION_THRESHOLD:
+            X_microbe = df.loc[[i], microbe_feature_columns]
+            microbe_pred_encoded = microbe_model.predict(X_microbe)[0]
+            predicted_microbe = microbe_label_encoder.inverse_transform(
+                [microbe_pred_encoded]
+            )[0]
 
-        # 1) Insert or update the prediction for this department/date
+        microbe_note = f" ({predicted_microbe})" if predicted_microbe else ""
+        print(f"  {target_date} — {code}: {risk_percentage}%{microbe_note}")
+
+        # Insert or update the prediction for this department/date
         supabase.from_("predictions").upsert({
             "department_id": department_id,
-            "prediction_date": today,
+            "prediction_date": target_date,
             "risk_percentage": risk_percentage,
             "infection_type": "Predicted Outbreak Risk",
-            "predicted_microbe": None,
+            "predicted_microbe": predicted_microbe,
             "model_version": "XGBoost-v1",
         }, on_conflict="department_id,prediction_date").execute()
 
-        # 2) Create an alert if risk crosses a threshold
-        # (clear any existing alert for this department/day first so
-        # re-running the script the same day doesn't pile up duplicates)
+        # Clear any existing alert for this department/day first so
+        # re-running the script doesn't pile up duplicates
         supabase.from_("alerts") \
             .delete() \
             .eq("department_id", department_id) \
-            .eq("alert_date", today) \
+            .eq("alert_date", target_date) \
             .execute()
 
         severity = severity_for_risk(risk_percentage)
         if severity:
             message = (
-                f"Predicted infection risk for {code} is {risk_percentage}% "
-                f"({severity}) based on current cleaning, occupancy, and "
-                f"lab data."
+                f"Predicted infection risk for {code} on {target_date} is "
+                f"{risk_percentage}% ({severity})"
+                + (f", likely {predicted_microbe}" if predicted_microbe else "")
+                + "."
             )
             supabase.from_("alerts").insert({
                 "department_id": department_id,
-                "alert_date": today,
+                "alert_date": target_date,
                 "risk_percentage": risk_percentage,
                 "severity": severity,
                 "message": message,
                 "status": "Active",
             }).execute()
             print(f"    -> Alert created ({severity})")
+
+
+def main():
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+    print("Loading models...")
+    (
+        model,
+        feature_columns,
+        microbe_model,
+        microbe_feature_columns,
+        microbe_label_encoder,
+    ) = load_models()
+
+    today = date.today()
+
+    for offset in range(0, FORECAST_DAYS_AHEAD + 1):
+        target_date = (today + timedelta(days=offset)).isoformat()
+        print(f"\nForecasting {target_date}...")
+        predict_for_day(
+            supabase,
+            target_date,
+            model,
+            feature_columns,
+            microbe_model,
+            microbe_feature_columns,
+            microbe_label_encoder,
+        )
 
     print("\nDone. Check the 'predictions' and 'alerts' tables in Supabase.")
 
