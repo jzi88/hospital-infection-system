@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Hospital Infection Risk System</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="app">
+
+    <aside class="sidebar">
+
+        <div class="logo">
+            <div class="logo-icon">+</div>
+
+            <div>
+                <h2>HOSPITAL</h2>
+                <span>Infection Risk System</span>
+            </div>
+        </div>
+
+        <nav>
+
+            <button class="nav-btn active" data-page="patients">
+                👤 Patients
+            </button>
+
+            <button class="nav-btn" data-page="appointments">
+                📅 Appointments
+            </button>
+
+            <button class="nav-btn" data-page="laboratory">
+                🧪 Laboratory
+            </button>
+
+            <button class="nav-btn" data-page="samples">
+                🔬 Surface Samples
+            </button>
+
+            <button class="nav-btn" data-page="cleaning">
+                🧹 Cleaning
+            </button>
+
+            <button class="nav-btn" data-page="predictions">
+                📊 Predictions
+            </button>
+
+            <button class="nav-btn" data-page="alerts">
+                🚨 Alerts
+            </button>
+
+        </nav>
+
+    </aside>
+
+
+    <main class="main">
+
+        <header class="topbar">
+
+            <div>
+                <p class="eyebrow">HOSPITAL MANAGEMENT</p>
+                <h1 id="page-title">Patients</h1>
+            </div>
+
+            <div class="system-status">
+                <span></span>
+                System Online
+            </div>
+
+        </header>
+
+
+        <section id="content"></section>
+
+    </main>
+
+</div>
+
+
+<script src="app.js"></script>
+
+</body>
+</html>
