@@ -2,12 +2,30 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html {
+    scroll-behavior: smooth;
 }
 
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
     background: #bee5eb;
     color: #18212b;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Smooth fade-in whenever a page's content is (re)rendered */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+#content.fade-in {
+    animation: fadeIn .28s ease;
 }
 
 .app {
@@ -70,6 +88,7 @@ nav {
     border-radius: 8px;
     cursor: pointer;
     font-size: 14px;
+    transition: background .2s ease, color .2s ease;
 }
 
 .nav-btn:hover,
@@ -103,7 +122,8 @@ nav {
 }
 
 .topbar h1 {
-    font-size: 25px;
+    font-size: 24px;
+    font-weight: 700;
 }
 
 .system-status {
@@ -147,10 +167,15 @@ nav {
     border-radius: 7px;
     cursor: pointer;
     font-weight: bold;
+    transition: opacity .2s ease, transform .1s ease;
 }
 
 .btn:hover {
     opacity: .9;
+}
+
+.btn:active {
+    transform: scale(0.97);
 }
 
 
@@ -162,15 +187,24 @@ nav {
     border-radius: 10px;
     padding: 20px;
     overflow-x: auto;
+
+    /* shrink to fit whatever's inside (e.g. a table) instead of
+       always stretching to the full width of the page */
+    width: fit-content;
+    max-width: 100%;
+
+    /* center it horizontally within the content area */
+    margin-left: auto;
+    margin-right: auto;
 }
 
 
 /* TABLE */
 
 table {
-    width: 100%;
+    width: auto;
     border-collapse: collapse;
-    min-width: 750px;
+    min-width: 0;
 }
 
 th {
@@ -180,12 +214,14 @@ th {
     text-transform: uppercase;
     padding: 13px;
     border-bottom: 1px solid #e3e7eb;
+    white-space: nowrap;
 }
 
 td {
     padding: 14px 13px;
     border-bottom: 1px solid #edf0f2;
     font-size: 13px;
+    white-space: nowrap;
 }
 
 /* =========================================================
@@ -194,12 +230,13 @@ td {
 
 .status {
     display: inline-block;
-    padding: 5px 10px;
-    border-radius: 20px;
-    font-size: 11px;
+    padding: 9px 18px;
+    border-radius: 22px;
+    font-size: 12.5px;
     font-weight: bold;
-    min-width: 65px;
+    min-width: 75px;
     text-align: center;
+    white-space: nowrap;
 }
 
 /* 0 - 19% 🟢 */
@@ -237,6 +274,7 @@ td {
 
 .form-card {
     max-width: 700px;
+    width: 700px;
 }
 
 .form-grid {
@@ -316,6 +354,118 @@ td {
     .field.full {
         grid-column: auto;
     }
+
+    .card,
+    .form-card {
+        width: 100%;
+    }
+}
+
+@media (max-width: 600px) {
+
+    /* Sidebar becomes a slim icon-only bar; give the nav buttons a
+       bigger tap target on touch screens */
+    .sidebar {
+        width: 62px;
+        padding: 14px 6px;
+    }
+
+    .logo {
+        margin-bottom: 20px;
+        justify-content: center;
+        padding: 6px;
+    }
+
+    .logo-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 20px;
+    }
+
+    .nav-btn {
+        padding: 14px 4px;
+    }
+
+    .topbar {
+        padding: 16px;
+    }
+
+    .topbar h1 {
+        font-size: 19px;
+    }
+
+    .eyebrow {
+        font-size: 9px;
+    }
+
+    .system-status {
+        font-size: 0;
+    }
+
+    .system-status span {
+        margin-right: 0;
+    }
+
+    #content {
+        padding: 14px;
+    }
+
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .page-header .btn {
+        width: 100%;
+    }
+
+    /* Alerts: stack the summary above the detail list, and lay the
+       four stat cards out in a horizontal, wrapping row instead of
+       a tall vertical column */
+    .alerts-layout {
+        flex-direction: column;
+    }
+
+    .alerts-summary {
+        flex-direction: row;
+        flex-wrap: wrap;
+        width: 100%;
+        gap: 10px;
+    }
+
+    .alert-stat {
+        flex: 1 1 calc(50% - 10px);
+        width: auto;
+        height: 84px;
+    }
+
+    .alert-list {
+        max-width: 100%;
+    }
+
+    .alert-card-message {
+        font-size: 12.5px;
+    }
+
+    /* Tables: allow horizontal scroll instead of squeezing columns */
+    .card {
+        padding: 14px;
+    }
+
+    table {
+        font-size: 12.5px;
+    }
+
+    th, td {
+        padding: 10px 9px;
+    }
+
+    .status {
+        padding: 7px 13px;
+        font-size: 11.5px;
+        min-width: 60px;
+    }
 }
 
 /* =========================================================
@@ -350,3 +500,159 @@ td {
     filter: brightness(0.98);
 }
 
+
+/* =========================================================
+   ALERTS DASHBOARD (summary stats + card list)
+   ========================================================= */
+
+.alerts-layout {
+    display: flex;
+    gap: 22px;
+    align-items: flex-start;
+}
+
+.alerts-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.alert-stat {
+    background: white;
+    border: 1px solid #e3e7eb;
+    border-top: 4px solid #ccc;
+    border-radius: 10px;
+    width: 108px;
+    height: 100px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.alert-stat.critical { border-top-color: #c6283d; }
+.alert-stat.high     { border-top-color: #c45b00; }
+.alert-stat.medium   { border-top-color: #9a7800; }
+.alert-stat.low      { border-top-color: #21853a; }
+
+.alert-stat-icon {
+    font-size: 17px;
+    margin-bottom: 4px;
+}
+
+.alert-stat-count {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.alert-stat-label {
+    font-size: 10.5px;
+    color: #78838d;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-top: 4px;
+    font-weight: 600;
+}
+
+.alerts-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.section-title {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #53616c;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 12px;
+}
+
+.alert-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.alert-card {
+    background: white;
+    border: 1px solid #e3e7eb;
+    border-left: 5px solid #ccc;
+    border-radius: 10px;
+    padding: 16px 20px;
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+
+.alert-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.alert-card.critical { border-left-color: #c6283d; background: #f2b0b7; }
+.alert-card.high     { border-left-color: #c45b00; background: #f4d5ac; }
+.alert-card.medium   { border-left-color: #9a7800; background: #f8efb5; }
+.alert-card.low      { border-left-color: #21853a; background: #b1eaba; }
+
+.alert-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.alert-card-risk {
+    font-weight: bold;
+    font-size: 15px;
+    color: #18212b;
+}
+
+.alert-card-dept {
+    font-weight: bold;
+    font-size: 14px;
+    margin-bottom: 4px;
+}
+
+.alert-card-message {
+    font-size: 13px;
+    color: #53616c;
+    margin-bottom: 10px;
+    line-height: 1.4;
+}
+
+.alert-card-footer {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.btn-link {
+    background: none;
+    border: none;
+    color: #e84a5f;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 13px;
+    padding: 0;
+    transition: opacity .2s ease;
+}
+
+.btn-link:hover {
+    text-decoration: underline;
+    opacity: .8;
+}
+
+.alert-card-resolved {
+    font-size: 12px;
+    color: #78838d;
+}
+
+.empty-state {
+    background: white;
+    border: 1px solid #e3e7eb;
+    border-radius: 10px;
+    padding: 40px;
+    text-align: center;
+    color: #78838d;
+    max-width: 700px;
+}

@@ -1,6 +1,15 @@
 const content = document.getElementById("content");
 const pageTitle = document.getElementById("page-title");
 
+// Renders new page content with a smooth fade-in transition instead of
+// an abrupt swap.
+function setContent(html) {
+    content.classList.remove("fade-in");
+    void content.offsetWidth; // force reflow so the animation restarts
+    content.innerHTML = html;
+    content.classList.add("fade-in");
+}
+
 let departments = [];
 let patients = [];
 let surfaces = [];
@@ -51,7 +60,7 @@ async function showPatients() {
 
     await loadPatients();
 
-    content.innerHTML = `
+    setContent(`
 
         <div class="page-header">
 
@@ -121,7 +130,7 @@ async function showPatients() {
             </table>
 
         </div>
-    `;
+    `);
 }
 
 
@@ -135,7 +144,7 @@ async function showPatientForm() {
 
     pageTitle.textContent = "Add Patient";
 
-    content.innerHTML = `
+    setContent(`
 
         <div class="page-header">
 
@@ -286,7 +295,7 @@ async function showPatientForm() {
             </form>
 
         </div>
-    `;
+    `);
 
 
     document
@@ -366,7 +375,7 @@ async function showAppointments() {
 
     pageTitle.textContent = "Appointments";
 
-    content.innerHTML = `
+    setContent(`
 
         <div class="page-header">
             <div>
@@ -427,7 +436,7 @@ async function showAppointments() {
             </form>
 
         </div>
-    `;
+    `);
 
     document
         .getElementById("appointmentForm")
@@ -481,7 +490,7 @@ async function showLaboratory() {
 
     pageTitle.textContent = "Laboratory";
 
-    content.innerHTML = `
+    setContent(`
 
         <div class="page-header">
             <div>
@@ -545,7 +554,7 @@ async function showLaboratory() {
             </form>
 
         </div>
-    `;
+    `);
 
     document
         .getElementById("labForm")
@@ -600,7 +609,7 @@ async function showSamples() {
 
     pageTitle.textContent = "Surface Samples";
 
-    content.innerHTML = `
+    setContent(`
 
         <div class="page-header">
             <div>
@@ -664,7 +673,7 @@ async function showSamples() {
             </form>
 
         </div>
-    `;
+    `);
 
     document
         .getElementById("sampleForm")
@@ -723,7 +732,7 @@ async function showCleaning() {
 
     pageTitle.textContent = "Cleaning";
 
-    content.innerHTML = `
+    setContent(`
 
         <div class="page-header">
             <div>
@@ -779,7 +788,7 @@ async function showCleaning() {
             </form>
 
         </div>
-    `;
+    `);
 
     document
         .getElementById("cleaningForm")
@@ -833,7 +842,7 @@ async function showMicrobeGuide() {
 
     const reference = await api("/api/microbe-reference");
 
-    content.innerHTML = `
+    setContent(`
 
         <div class="page-header">
             <div>
@@ -871,7 +880,7 @@ async function showMicrobeGuide() {
             </table>
 
         </div>
-    `;
+    `);
 }
 
 
@@ -892,7 +901,7 @@ async function showPredictions() {
 
     const predictions = await api("/api/predictions");
 
-    content.innerHTML = `
+    setContent(`
 
         <div class="page-header">
             <div>
@@ -940,7 +949,7 @@ async function showPredictions() {
             </table>
 
         </div>
-    `;
+    `);
 }
 
 
@@ -971,63 +980,102 @@ async function showAlerts() {
 
     const alerts = await api("/api/alerts/today");
 
-    content.innerHTML = `
+    const counts = { critical: 0, high: 0, medium: 0, low: 0 };
+    alerts.forEach(a => {
+        const c = riskClass(a.risk_percentage);
+        if (counts[c] !== undefined) counts[c]++;
+    });
+
+    setContent(`
 
         <div class="page-header">
             <div>
-                <h2>Active Alerts</h2>
-                <p>Departments currently flagged as high risk.</p>
+                <h2>Alerts</h2>
+                <p>Departments currently flagged as high risk today.</p>
             </div>
         </div>
 
-        <div class="card">
+        <div class="alerts-layout">
 
-            <table>
+            <div class="alerts-summary">
 
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Department</th>
-                        <th>Risk %</th>
-                        <th>Severity</th>
-                        <th>Message</th>
-                        <th>Status</th>
-                        <th></th>
-                    </tr>
-                </thead>
+                <div class="alert-stat critical">
+                    <div class="alert-stat-icon">🔴</div>
+                    <div class="alert-stat-count">${counts.critical}</div>
+                    <div class="alert-stat-label">Critical</div>
+                </div>
 
-                <tbody>
+                <div class="alert-stat high">
+                    <div class="alert-stat-icon">🟠</div>
+                    <div class="alert-stat-count">${counts.high}</div>
+                    <div class="alert-stat-label">High</div>
+                </div>
 
-                    ${alerts.map(a => `
+                <div class="alert-stat medium">
+                    <div class="alert-stat-icon">🟡</div>
+                    <div class="alert-stat-count">${counts.medium}</div>
+                    <div class="alert-stat-label">Medium</div>
+                </div>
 
-                        <tr>
-                            <td>${a.alert_date}</td>
-                            <td>${a.departments?.code || "-"}</td>
-                            <td>${a.risk_percentage}%</td>
-                            <td>
-                                <span class="status ${riskClass(a.risk_percentage)}">
-                                    ${a.severity}
-                                </span>
-                            </td>
-                            <td>${a.message}</td>
-                            <td>${a.status}</td>
-                            <td>
-                                ${a.status === "Active" ? `
-                                    <button class="btn" onclick="resolveAlert(${a.alert_id})">
-                                        Resolve
-                                    </button>
-                                ` : ""}
-                            </td>
-                        </tr>
+                <div class="alert-stat low">
+                    <div class="alert-stat-icon">🟢</div>
+                    <div class="alert-stat-count">${counts.low}</div>
+                    <div class="alert-stat-label">Low</div>
+                </div>
 
-                    `).join("")}
+            </div>
 
-                </tbody>
+            <div class="alerts-main">
 
-            </table>
+                <div class="section-title">Active Alerts</div>
+
+                ${alerts.length === 0 ? `
+                    <div class="empty-state">
+                        No active alerts today 🎉
+                    </div>
+                ` : `
+                    <div class="alert-list">
+
+                        ${alerts.map(a => `
+
+                            <div class="alert-card ${riskClass(a.risk_percentage)}">
+
+                                <div class="alert-card-top">
+                                    <span class="status ${riskClass(a.risk_percentage)}">
+                                        ${a.severity}
+                                    </span>
+                                    <span class="alert-card-risk">${a.risk_percentage}%</span>
+                                </div>
+
+                                <div class="alert-card-dept">
+                                    ${a.departments?.code || "-"} — ${a.departments?.name || ""}
+                                </div>
+
+                                <div class="alert-card-message">
+                                    ${a.message}
+                                </div>
+
+                                <div class="alert-card-footer">
+                                    ${a.status === "Active" ? `
+                                        <button class="btn-link" onclick="resolveAlert(${a.alert_id})">
+                                            Resolve →
+                                        </button>
+                                    ` : `
+                                        <span class="alert-card-resolved">Resolved</span>
+                                    `}
+                                </div>
+
+                            </div>
+
+                        `).join("")}
+
+                    </div>
+                `}
+
+            </div>
 
         </div>
-    `;
+    `);
 }
 
 
